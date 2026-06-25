@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StudyFlow — 勉強計画アプリ</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+  :root {
+    --bg: #0D0F14;
+    --surface: #1A1D26;
+    --surface2: #222636;
+    --border: #2A2F40;
+    --accent: #4F8EF7;
+    --gold: #F7C948;
+    --red: #E85D75;
+    --green: #3DD68C;
+    --text: #E8EAF0;
+    --text-muted: #6B7090;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+  }
+  .logo span { color: var(--gold); }
+
+  .date-badge {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+  }
+
+  /* ===== NAV ===== */
+  nav {
+    display: flex;
+    gap: 4px;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .nav-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 500;
+    padding: 12px 16px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .nav-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .nav-btn:hover:not(.active) { color: var(--text); }
+
+  /* ===== MAIN ===== */
+  main {
+    flex: 1;
+    padding: 24px;
+    max-width: 800px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ===== CARDS ===== */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+
+  /* ===== TODAY PAGE ===== */
+  .today-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .stat-box {
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    border: 1px solid var(--border);
+  }
+
+  .stat-number {
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .stat-number.gold { color: var(--gold); }
+  .stat-number.green { color: var(--green); }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* ===== TASK ITEMS ===== */
+  .task-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .task-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .task-item:hover { border-color: var(--accent); }
+  .task-item.done { opacity: 0.5; }
+  .task-item.day-done:not(.done) { opacity: 0.7; }
+  .task-item.done .task-name { text-decoration: line-through; }
+
+  .task-check {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    font-size: 12px;
+  }
+  .task-item.done .task-check {
+    background: var(--green);
+    border-color: var(--green);
+    color: #000;
+  }
+
+  .task-info { flex: 1; }
+  .task-name { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+  .task-meta { font-size: 12px; color: var(--text-muted); display: flex; gap: 8px; }
+
+  .task-amount {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .task-delete-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    transition: all 0.15s;
+    line-height: 1;
+  }
+  .task-delete-btn:hover { color: var(--red); background: rgba(232,93,117,0.12); }
+
+  .task-edit-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    transition: all 0.15s;
+    line-height: 1;
+  }
+  .task-edit-btn:hover { color: var(--accent); background: rgba(79,142,247,0.12); }
+
+  /* quantity progress blocks */
+  .qty-blocks {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .qty-block {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    background: var(--border);
+    transition: background 0.2s;
+    cursor: pointer;
+  }
+  .qty-block.done { background: var(--green); }
+  .qty-block.active { background: var(--accent); }
+
+  /* subject pill */
+  .subject-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .subj-math { background: #1a2a4a; color: #4F8EF7; }
+  .subj-eng  { background: #2a1a3a; color: #A78BFA; }
+  .subj-jpn  { background: #1a3a2a; color: #3DD68C; }
+  .subj-sci  { background: #2a3a1a; color: #86EFAC; }
+  .subj-soc  { background: #3a2a1a; color: #FDBA74; }
+  .subj-other{ background: #2a2a2a; color: #94A3B8; }
+
+  /* ===== ADD TASK FORM ===== */
+  .add-task-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    background: none;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    color: var(--text-muted);
+    font-family: var(--sans);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+  }
+  .add-task-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .form-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow-y: auto;
+  }
+  .form-overlay.open { display: flex; }
+
+  .form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 440px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    margin: auto;
+  }
+
+  .form-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; display: block; }
+
+  .form-input, .form-select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus, .form-select:focus { border-color: var(--accent); }
+  .form-select option { background: var(--surface2); }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .page-range-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .page-prefix { font-size: 13px; color: var(--text-muted); font-family: var(--mono); }
+  .page-sep { font-size: 13px; color: var(--text-muted); margin: 0 2px; }
+  .page-select { flex: 1; min-width: 0; font-family: var(--mono); text-align: center; }
+  .page-range-hint {
+    font-size: 12px;
+    color: var(--accent);
+    margin-top: 6px;
+    font-family: var(--mono);
+  }
+
+  .subject-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .subject-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .subject-btn .subj-icon { font-size: 22px; line-height: 1; }
+  .subject-btn .subj-text { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+  .subject-btn:hover { border-color: var(--accent); }
+  .subject-btn.selected {
+    border-color: var(--sb-color, var(--accent));
+    background: var(--sb-bg, rgba(79,142,247,0.12));
+  }
+  .subject-btn.selected .subj-text { color: var(--sb-color, var(--accent)); }
+
+  .form-actions { display: flex; gap: 8px; margin-top: 20px; }
+
+  .btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: opacity 0.2s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn-primary { background: var(--accent); color: #fff; flex: 1; }
+  .btn-ghost { background: var(--surface2); color: var(--text-muted); }
+
+  /* ===== TIMER PAGE ===== */
+  .timer-display {
+    text-align: center;
+    padding: 32px 0;
+  }
+
+  .timer-subject-select {
+    margin-bottom: 24px;
+  }
+
+  .timer-clock {
+    font-family: var(--mono);
+    font-size: 72px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -2px;
+    line-height: 1;
+    margin-bottom: 8px;
+    transition: color 0.3s;
+  }
+  .timer-clock.running { color: var(--accent); }
+  .timer-clock.warning { color: var(--gold); }
+  .timer-clock.urgent { color: var(--red); }
+
+  .timer-label { font-size: 13px; color: var(--text-muted); margin-bottom: 32px; }
+
+  .timer-presets {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .preset-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 14px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .preset-btn:hover, .preset-btn.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .timer-controls { display: flex; gap: 12px; justify-content: center; }
+
+  .timer-btn {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .timer-btn:active { transform: scale(0.95); }
+  .timer-btn-main { background: var(--accent); color: #fff; width: 72px; height: 72px; font-size: 24px; }
+  .timer-btn-sub  { background: var(--surface2); color: var(--text-muted); }
+
+  /* session log */
+  .session-log { margin-top: 20px; }
+  .session-entry {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .session-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    flex-shrink: 0;
+  }
+  .session-time { font-family: var(--mono); color: var(--text-muted); margin-left: auto; }
+
+  /* ===== LOGIN SCREEN ===== */
+  .login-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    padding: 24px;
+  }
+  .login-logo {
+    font-family: var(--mono);
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .login-logo span { color: var(--gold); }
+  .login-sub {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .login-error {
+    font-size: 13px;
+    color: var(--red);
+    text-align: center;
+    max-width: 280px;
+  }
+  .login-loading {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .app-hidden { display: none !important; }
+
+  /* ===== JUKU SCHEDULE ===== */
+  .juku-week { display: flex; flex-direction: column; gap: 10px; }
+
+  .juku-day-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    flex-wrap: wrap;
+  }
+
+  .juku-day-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 64px;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  .juku-checkbox {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    transition: all 0.15s;
+  }
+  .juku-checkbox.checked { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .juku-day-label { font-size: 13px; font-weight: 600; }
+
+  .juku-time-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 200px;
+    opacity: 1;
+    transition: opacity 0.15s;
+  }
+  .juku-time-row.disabled { opacity: 0.3; pointer-events: none; }
+
+  .juku-time-select {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 6px 8px;
+  }
+
+  .juku-name-input {
+    flex: 1.4;
+    min-width: 0;
+    font-size: 13px;
+    padding: 6px 8px;
+  }
+
+  /* ===== SCHEDULE PAGE ===== */
+  .week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+
+  .day-col { text-align: center; }
+  .day-name {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .day-num {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 auto;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .day-num.today { background: var(--accent); color: #fff; }
+  .day-num:hover:not(.today) { background: var(--surface2); }
+
+  .day-dots { display: flex; justify-content: center; gap: 2px; margin-top: 4px; flex-wrap: wrap; }
+  .day-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+
+  .schedule-list { display: flex; flex-direction: column; gap: 10px; }
+  .schedule-day-header {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 16px;
+    margin-bottom: 8px;
+  }
+
+  /* ===== STATS PAGE ===== */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .big-stat {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .big-stat-num {
+    font-family: var(--mono);
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--gold);
+  }
+  .big-stat-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+  .streak-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px;
+    background: linear-gradient(135deg, #1a2a1a, #1a3a2a);
+    border: 1px solid var(--green);
+    border-radius: 10px;
+    margin-bottom: 16px;
+  }
+  .streak-fire { font-size: 28px; }
+  .streak-num {
+    font-family: var(--mono);
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--green);
+  }
+  .streak-text { font-size: 13px; color: var(--text-muted); }
+
+  .subject-bars { display: flex; flex-direction: column; gap: 10px; }
+  .subj-bar-row { display: flex; align-items: center; gap: 10px; }
+  .subj-bar-label { font-size: 13px; width: 60px; }
+  .subj-bar-track {
+    flex: 1;
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .subj-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+  }
+  .subj-bar-count { font-family: var(--mono); font-size: 12px; color: var(--text-muted); width: 40px; text-align: right; }
+
+  /* ===== TOAST ===== */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--green);
+    color: #000;
+    padding: 12px 24px;
+    border-radius: 24px;
+    font-size: 14px;
+    font-weight: 600;
+    transition: transform 0.3s ease;
+    z-index: 500;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 480px) {
+    header { padding: 12px 16px; }
+    main { padding: 16px; }
+    .timer-clock { font-size: 56px; }
+    .today-summary { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="login-screen" id="loginScreen">
+  <div class="login-logo">Study<span>Flow</span></div>
+  <div class="login-sub">Googleアカウントでログインしてください</div>
+  <div id="googleSignInBtn"></div>
+  <div class="login-loading" id="loginLoading" style="display:none">ログイン確認中...</div>
+  <div class="login-error" id="loginError" style="display:none"></div>
+</div>
+
+<div id="appRoot" class="app-hidden">
+
+<header>
+  <div class="logo">Study<span>Flow</span></div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="date-badge" id="headerDate"></div>
+    <button onclick="logout()" style="background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;padding:4px 8px;border-radius:6px;" title="ログアウト">⏏</button>
+  </div>
+</header>
+
+<nav>
+  <button class="nav-btn active" onclick="showPage('today')">📋 今日</button>
+  <button class="nav-btn" onclick="showPage('schedule')">📅 スケジュール</button>
+  <button class="nav-btn" onclick="showPage('timer')">⏱ タイマー</button>
+  <button class="nav-btn" onclick="showPage('stats')">📊 記録</button>
+  <button class="nav-btn" onclick="showPage('settings')">⚙️ 設定</button>
+</nav>
+
+<main>
+
+  <!-- ===== TODAY ===== -->
+  <div class="page active" id="page-today">
+
+    <div class="today-summary">
+      <div class="stat-box">
+        <div class="stat-number" id="stat-total">0</div>
+        <div class="stat-label">今日のタスク</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-number green" id="stat-done">0</div>
+        <div class="stat-label">完了</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-number gold" id="stat-qty">0</div>
+        <div class="stat-label">残り問題</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">今日のタスク</div>
+      <div class="task-list" id="todayTaskList"></div>
+      <button class="add-task-btn" onclick="openAddForm('today')">＋ タスクを追加</button>
+    </div>
+
+    <div class="card" id="jukuCard">
+      <div class="card-title">塾</div>
+      <div id="jukuInfo" style="font-size:14px; color:var(--text-muted);">塾の予定はありません</div>
+    </div>
+
+    <div class="card" id="clubCard">
+      <div class="card-title">部活・予定</div>
+      <div id="clubInfo" style="font-size:14px; color:var(--text-muted);">今日は部活なし</div>
+    </div>
+
+  </div>
+
+  <!-- ===== SCHEDULE ===== -->
+  <div class="page" id="page-schedule">
+    <div class="card">
+      <div class="card-title">今週</div>
+      <div class="week-grid" id="weekGrid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">今週のタスク一覧</div>
+      <div id="scheduleList" class="schedule-list"></div>
+      <button class="add-task-btn" onclick="openAddForm('schedule')">＋ タスクを追加</button>
+    </div>
+  </div>
+
+  <!-- ===== TIMER ===== -->
+  <div class="page" id="page-timer">
+    <div class="card">
+      <div class="card-title">科目を選ぶ</div>
+      <select class="form-select" id="timerSubject">
+        <option value="">-- 科目 --</option>
+        <option value="math">数学</option>
+        <option value="eng">英語</option>
+        <option value="jpn">国語</option>
+        <option value="sci">理科</option>
+        <option value="soc">社会</option>
+        <option value="other">その他</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <div class="timer-display">
+        <div class="timer-clock" id="timerClock">25:00</div>
+        <div class="timer-label" id="timerLabel">集中タイム</div>
+
+        <div class="timer-presets">
+          <button class="preset-btn selected" onclick="setPreset(25, this)">25分</button>
+          <button class="preset-btn" onclick="setPreset(15, this)">15分</button>
+          <button class="preset-btn" onclick="setPreset(45, this)">45分</button>
+          <button class="preset-btn" onclick="setPreset(60, this)">60分</button>
+        </div>
+
+        <div class="timer-controls">
+          <button class="timer-btn timer-btn-sub" onclick="resetTimer()">↺</button>
+          <button class="timer-btn timer-btn-main" id="timerPlayBtn" onclick="toggleTimer()">▶</button>
+          <button class="timer-btn timer-btn-sub" onclick="lapTimer()">◎</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">今日のセッション</div>
+      <div class="session-log" id="sessionLog">
+        <div style="font-size:13px; color:var(--text-muted)">まだセッションがありません</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== STATS ===== -->
+  <div class="page" id="page-stats">
+    <div class="streak-display">
+      <div class="streak-fire">🔥</div>
+      <div>
+        <div class="streak-num" id="streakNum">0</div>
+        <div class="streak-text">日連続達成中</div>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="big-stat">
+        <div class="big-stat-num" id="totalCompleted">0</div>
+        <div class="big-stat-label">総完了タスク</div>
+      </div>
+      <div class="big-stat">
+        <div class="big-stat-num" id="totalMinutes">0</div>
+        <div class="big-stat-label">総学習分数</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">科目別 完了問題数</div>
+      <div class="subject-bars" id="subjectBars"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">最近の完了タスク</div>
+      <div id="recentTasks" class="task-list"></div>
+    </div>
+  </div>
+  <!-- ===== SETTINGS ===== -->
+  <div class="page" id="page-settings">
+    <div class="card">
+      <div class="card-title">塾の固定スケジュール</div>
+      <div class="juku-week" id="jukuWeekEditor"></div>
+      <button class="add-task-btn" style="margin-top:14px" onclick="saveJukuSchedule()">💾 保存する</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- ===== ADD TASK FORM ===== -->
+<div class="form-overlay" id="addFormOverlay">
+  <div class="form-card">
+    <div class="form-title" id="formTitle">タスクを追加</div>
+    <div class="form-group">
+      <label class="form-label">タスク名</label>
+      <input class="form-input" id="f-name" placeholder="例：数学ワーク p.30〜32">
+    </div>
+    <div class="form-group">
+      <label class="form-label">科目</label>
+      <div class="subject-grid" id="f-subject-grid"></div>
+      <input type="hidden" id="f-subject" value="math">
+    </div>
+    <div class="form-group">
+      <label class="form-label">ページ範囲</label>
+      <div class="page-range-row">
+        <span class="page-prefix">p.</span>
+        <select class="form-select page-select" id="f-page-start"></select>
+        <span class="page-sep">〜</span>
+        <span class="page-prefix">p.</span>
+        <select class="form-select page-select" id="f-page-end"></select>
+      </div>
+      <div class="page-range-hint" id="pageRangeHint">合計 0 ページ</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">日付</label>
+        <input class="form-input" id="f-date" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">締切</label>
+        <input class="form-input" id="f-deadline" type="date">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">メモ（任意）</label>
+      <input class="form-input" id="f-memo" placeholder="例：塾の宿題">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeAddForm()">キャンセル</button>
+      <button class="btn btn-primary" id="formSaveBtn" onclick="saveTask()">追加する</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+</div>
+
+<script>
+// ===== LOGIN / AUTH =====
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyF_IYTtvA_QjjVIDAbPWClOI0JbTeUKK_0xJ4djwGCtaPaSCoZNUjH-LvLqpnEmcDouQ/exec';
+const GOOGLE_CLIENT_ID = '55651219122-a3t4hegkja1rp1tbnv677of7mnjahv9n.apps.googleusercontent.com';
+
+let currentUser = JSON.parse(sessionStorage.getItem('sf_user') || 'null');
+
+function initGoogleSignIn() {
+  if (typeof google === 'undefined') {
+    // GIS script not loaded yet, retry shortly
+    setTimeout(initGoogleSignIn, 300);
+    return;
+  }
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: handleGoogleCredential
+  });
+  google.accounts.id.renderButton(
+    document.getElementById('googleSignInBtn'),
+    { theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'pill' }
+  );
+}
+
+function handleGoogleCredential(response) {
+  const idToken = response.credential;
+  document.getElementById('loginLoading').style.display = 'block';
+  document.getElementById('loginError').style.display = 'none';
+
+  fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' }, // avoids CORS preflight for GAS
+    body: JSON.stringify({ action: 'login', idToken: idToken })
+  })
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('loginLoading').style.display = 'none';
+      if (data.success) {
+        currentUser = { email: data.email, name: data.name, spreadsheetId: data.spreadsheetId };
+        sessionStorage.setItem('sf_user', JSON.stringify(currentUser));
+        showApp();
+      } else {
+        showLoginError(data.error || 'ログインに失敗しました');
+      }
+    })
+    .catch(err => {
+      document.getElementById('loginLoading').style.display = 'none';
+      showLoginError('通信エラーが発生しました。電波を確認してください。');
+    });
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appRoot').classList.remove('app-hidden');
+  document.getElementById('headerDate').insertAdjacentHTML('beforebegin',
+    `<span style="color:var(--accent);font-weight:600;margin-right:10px" id="userNameBadge">${currentUser.name}</span>`);
+  initAppData();
+}
+
+// Generic helper to call the GAS backend. Always includes the logged-in user's spreadsheetId.
+function callApi(action, extra) {
+  const body = Object.assign({ action: action, spreadsheetId: currentUser.spreadsheetId }, extra || {});
+  return fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(body)
+  }).then(r => r.json());
+}
+
+function logout() {
+  sessionStorage.removeItem('sf_user');
+  currentUser = null;
+  location.reload();
+}
+
+// ===== STATE =====
+let tasks = JSON.parse(localStorage.getItem('sf_tasks') || '[]');
+let editingTaskId = null;
+let jukuSchedule = JSON.parse(localStorage.getItem('sf_juku') || 'null') || {
+  mon: null, tue: null, wed: null, thu: null, fri: null, sat: null, sun: null
+};
+let sessions = JSON.parse(localStorage.getItem('sf_sessions') || '[]');
+let stats = JSON.parse(localStorage.getItem('sf_stats') || '{"completedTasks":0,"totalMinutes":0,"streak":0,"lastDate":"","subjectCounts":{}}');
+
+// ===== UTILS =====
+const today = () => new Date().toISOString().slice(0, 10);
+const formatDate = (d) => {
+  const dt = new Date(d + 'T00:00:00');
+  return `${dt.getMonth()+1}/${dt.getDate()}（${'日月火水木金土'[dt.getDay()]}）`;
+};
+const subjectLabel = { math:'数学', eng:'英語', jpn:'国語', sci:'理科', soc:'社会', other:'その他' };
+const subjectClass = { math:'subj-math', eng:'subj-eng', jpn:'subj-jpn', sci:'subj-sci', soc:'subj-soc', other:'subj-other' };
+const subjectColor = { math:'#4F8EF7', eng:'#A78BFA', jpn:'#3DD68C', sci:'#86EFAC', soc:'#FDBA74', other:'#94A3B8' };
+
+function toDateOnly(value) {
+  if (!value) return '';
+  // Already a plain YYYY-MM-DD string
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  // Could be a Date object (from Sheets) or an ISO datetime string
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  const yyyy = d.getFullYear();
+  const mm = (d.getMonth() + 1).toString().padStart(2, '0');
+  const dd = d.getDate().toString().padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function daysBetween(dateA, dateB) {
+  const a = new Date(toDateOnly(dateA) + 'T00:00:00');
+  const b = new Date(toDateOnly(dateB) + 'T00:00:00');
+  return Math.round((b - a) / 86400000);
+}
+
+// Returns how much of a task's total qty should be tackled "today" (or on `viewDate`),
+// pacing the remaining qty evenly across the days left until the deadline.
+function getDailyTarget(task, viewDate) {
+  const remainingQty = task.qty - task.doneBlocks;
+  if (remainingQty <= 0) return { target: 0, isFinalDay: true, daysLeft: 0 };
+  if (!task.deadline) return { target: remainingQty, isFinalDay: true, daysLeft: null };
+
+  const daysLeft = daysBetween(viewDate, task.deadline); // 0 = due today
+  if (daysLeft <= 0) {
+    return { target: remainingQty, isFinalDay: true, daysLeft: Math.max(daysLeft, 0) };
+  }
+  const daysSpan = daysLeft + 1; // inclusive of today
+  const perDay = Math.ceil(remainingQty / daysSpan);
+  return { target: Math.min(perDay, remainingQty), isFinalDay: false, daysLeft };
+}
+
+function save(task) {
+  // stats always go out, since most mutations touch stats too
+  callApi('saveStats', { stats: stats }).catch(() => showToast('⚠️ 統計の保存に失敗しました'));
+  if (task) {
+    callApi('saveTask', { task: task }).catch(() => showToast('⚠️ タスクの保存に失敗しました'));
+  }
+}
+
+function saveSessions() {
+  localStorage.setItem('sf_sessions', JSON.stringify(sessions));
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ===== NAV =====
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  event.target.classList.add('active');
+  if (id === 'today') { renderToday(); renderJukuToday(); }
+  if (id === 'schedule') renderSchedule();
+  if (id === 'stats') renderStats();
+  if (id === 'settings') renderJukuEditor();
+}
+
+// ===== HEADER DATE =====
+function setHeaderDate() {
+  const now = new Date();
+  const days = ['日','月','火','水','木','金','土'];
+  document.getElementById('headerDate').textContent =
+    `${now.getMonth()+1}/${now.getDate()} (${days[now.getDay()]})`;
+}
+
+// ===== TODAY =====
+function renderToday() {
+  const t = today();
+  // include tasks scheduled for today, OR tasks with a future deadline that are still pending
+  // (so they appear paced into today's workload), but not tasks scheduled for a future date.
+  const todayTasks = tasks.filter(task => {
+    if (task.date > t) return false; // not yet started
+    if (task.date === t) return true;
+    if (task.deadline && task.deadline >= t && task.doneBlocks < task.qty) return true;
+    return false;
+  });
+  const done = todayTasks.filter(tk => tk.doneBlocks >= tk.qty).length;
+  const remainingToday = todayTasks.reduce((s, tk) => {
+    const { target } = getDailyTarget(tk, t);
+    return s + target;
+  }, 0);
+
+  document.getElementById('stat-total').textContent = todayTasks.length;
+  document.getElementById('stat-done').textContent = done;
+  document.getElementById('stat-qty').textContent = remainingToday;
+
+  const list = document.getElementById('todayTaskList');
+  list.innerHTML = '';
+  if (todayTasks.length === 0) {
+    list.innerHTML = '<div style="font-size:13px;color:var(--text-muted);padding:8px 0">今日のタスクはまだありません</div>';
+    return;
+  }
+  todayTasks.forEach(task => list.appendChild(buildTaskEl(task, t)));
+}
+
+function buildTaskEl(task, viewDate) {
+  viewDate = viewDate || task.date;
+  const isDone = task.doneBlocks >= task.qty;
+  const { target, isFinalDay, daysLeft } = getDailyTarget(task, viewDate);
+  const targetReachedToday = target === 0; // today's portion already done (or task fully done)
+  const div = document.createElement('div');
+  div.className = 'task-item' + (isDone ? ' done' : (targetReachedToday ? ' day-done' : ''));
+
+  const check = `<div class="task-check" title="${targetReachedToday ? 'クリックで取り消し' : '今日の分を完了'}">${(isDone || targetReachedToday) ? '✓' : ''}</div>`;
+  const pill = `<span class="subject-pill ${subjectClass[task.subject]}">${subjectLabel[task.subject]}</span>`;
+  const pageRange = task.pageStart ? `<span>p.${task.pageStart}〜p.${task.pageEnd}</span>` : '';
+  const memo = task.memo ? `<span>${task.memo}</span>` : '';
+
+  let deadline = '';
+  if (task.deadline) {
+    if (isFinalDay && daysLeft <= 0) {
+      deadline = `<span style="color:var(--red)">締切${daysLeft === 0 ? '：今日' : '：過ぎています'}</span>`;
+    } else {
+      deadline = `<span>締切 ${formatDate(task.deadline)}（残り${daysLeft}日）</span>`;
+    }
+  }
+
+  // pacing note: how much of the total this day's target represents
+  const paceNote = task.deadline && !isFinalDay
+    ? `<span style="color:var(--gold)">今日のペース: ${target}/${task.qty}p</span>`
+    : '';
+
+  // qty blocks: highlight today's target range, cap visual at 40
+  const blockCount = Math.min(task.qty, 40);
+  const targetEnd = Math.min(task.doneBlocks + target, task.qty);
+  let blocks = '';
+  for (let i = 0; i < blockCount; i++) {
+    let cls = '';
+    if (i < task.doneBlocks) cls = 'done';
+    else if (i < targetEnd) cls = 'active';
+    blocks += `<div class="qty-block ${cls}" data-index="${i}" title="${i < task.doneBlocks ? 'クリックで取り消し' : ''}"></div>`;
+  }
+  if (task.qty > 40) blocks += `<span style="font-size:11px;color:var(--text-muted)">+${task.qty - 40}</span>`;
+
+  div.innerHTML = `
+    ${check}
+    <div class="task-info">
+      <div class="task-name"></div>
+      <div class="task-meta">${pill}${pageRange}${deadline}${memo}</div>
+      ${paceNote ? `<div class="task-meta" style="margin-top:2px">${paceNote}</div>` : ''}
+      <div class="qty-blocks">${blocks}</div>
+    </div>
+    <div class="task-amount">${task.doneBlocks}/${task.qty}</div>
+    <button class="task-edit-btn" title="編集">✎</button>
+    <button class="task-delete-btn" title="削除">✕</button>
+  `;
+
+  // Set task name via textContent (not interpolated into the HTML string) so any
+  // quotes/special characters in the name can never break the markup or attributes.
+  div.querySelector('.task-name').textContent = task.name;
+
+  div.querySelectorAll('.qty-block').forEach(blockEl => {
+    blockEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const index = Number(blockEl.dataset.index);
+      incrementBlock(e, task.id, index);
+    });
+  });
+
+  div.querySelector('.task-check').addEventListener('click', (e) => {
+    e.stopPropagation();
+    completeTodayTarget(task.id, viewDate);
+  });
+
+  div.querySelector('.task-edit-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    openEditForm(task.id);
+  });
+
+  div.querySelector('.task-delete-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    deleteTask(task.id);
+  });
+
+  return div;
+}
+
+function deleteTask(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  if (!confirm(`「${task.name}」を削除しますか？`)) return;
+  tasks = tasks.filter(t => t.id !== id);
+  callApi('deleteTask', { taskId: id }).catch(() => showToast('⚠️ 削除の同期に失敗しました'));
+  showToast('🗑 削除しました');
+  renderToday();
+  renderSchedule();
+  renderStats();
+}
+
+function completeTodayTarget(id, viewDate) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  viewDate = viewDate || task.date;
+  const { target } = getDailyTarget(task, viewDate);
+
+  if (target === 0) {
+    // today's portion (or whole task) is already marked done — undo it
+    if (task.doneBlocks <= 0) return;
+    const wasFullyDone = task.doneBlocks >= task.qty;
+    const undoAmount = task.lastTodayTargetApplied || task.doneBlocks;
+    task.doneBlocks = Math.max(0, task.doneBlocks - undoAmount);
+    delete task.lastTodayTargetApplied;
+    if (wasFullyDone) uncompleteTask(task);
+    else { showToast('↺ 今日の分を取り消しました'); save(task); }
+    renderToday();
+    renderSchedule();
+    return;
+  }
+
+  const wasFullyDone = task.doneBlocks >= task.qty;
+  task.doneBlocks = Math.min(task.doneBlocks + target, task.qty);
+  task.lastTodayTargetApplied = target;
+  if (!wasFullyDone && task.doneBlocks >= task.qty) {
+    completeTask(task);
+    save(task);
+  } else {
+    save(task);
+    showToast(`✅ 今日の分 ${target}ページ 完了！`);
+  }
+  renderToday();
+  renderSchedule();
+}
+
+function incrementBlock(e, id, index) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+
+  if (index < task.doneBlocks) {
+    // clicking an already-done block undoes back to that point
+    const wasFullyDone = task.doneBlocks >= task.qty;
+    task.doneBlocks = index;
+    if (wasFullyDone) uncompleteTask(task);
+    save(task);
+    renderToday();
+    renderSchedule();
+    return;
+  }
+
+  if (task.doneBlocks < task.qty) {
+    task.doneBlocks++;
+    if (task.doneBlocks === task.qty) {
+      completeTask(task);
+    }
+    save(task);
+    renderToday();
+    renderSchedule();
+  }
+}
+
+function toggleTask(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  if (task.doneBlocks >= task.qty) {
+    task.doneBlocks = 0;
+  } else {
+    task.doneBlocks = task.qty;
+    completeTask(task);
+  }
+  save(task);
+  renderToday();
+}
+
+function completeTask(task) {
+  stats.completedTasks++;
+  stats.subjectCounts[task.subject] = (stats.subjectCounts[task.subject] || 0) + task.qty;
+  updateStreak();
+  showToast('🎉 完了！すごい！');
+}
+
+function uncompleteTask(task) {
+  stats.completedTasks = Math.max(0, (stats.completedTasks || 0) - 1);
+  stats.subjectCounts[task.subject] = Math.max(0, (stats.subjectCounts[task.subject] || 0) - task.qty);
+  showToast('↺ 完了を取り消しました');
+}
+
+function updateStreak() {
+  const t = today();
+  if (stats.lastDate === t) return;
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const ystr = yesterday.toISOString().slice(0, 10);
+  if (stats.lastDate === ystr) {
+    stats.streak++;
+  } else if (stats.lastDate !== t) {
+    stats.streak = 1;
+  }
+  stats.lastDate = t;
+}
+
+// ===== SCHEDULE =====
+function renderSchedule() {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const weekGrid = document.getElementById('weekGrid');
+  weekGrid.innerHTML = '';
+
+  const dayNames = ['日','月','火','水','木','金','土'];
+  const todayStr = today();
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - dayOfWeek + i);
+    const dstr = d.toISOString().slice(0, 10);
+    const dayTasks = tasks.filter(t => t.date === dstr);
+    const dots = dayTasks.map(() => '<div class="day-dot"></div>').join('').slice(0, 20);
+
+    const col = document.createElement('div');
+    col.className = 'day-col';
+    col.innerHTML = `
+      <div class="day-name">${dayNames[i]}</div>
+      <div class="day-num ${dstr === todayStr ? 'today' : ''}">${d.getDate()}</div>
+      <div class="day-dots">${dots}</div>
+    `;
+    weekGrid.appendChild(col);
+  }
+
+  // list by day
+  const scheduleList = document.getElementById('scheduleList');
+  scheduleList.innerHTML = '';
+
+  // group tasks by date for upcoming 7 days
+  const allDates = [...new Set(tasks.map(t => t.date))].sort();
+  allDates.forEach(date => {
+    const dayTasks = tasks.filter(t => t.date === date);
+    if (dayTasks.length === 0) return;
+    const header = document.createElement('div');
+    header.className = 'schedule-day-header';
+    header.textContent = formatDate(date) + (date === todayStr ? ' ← 今日' : '');
+    scheduleList.appendChild(header);
+    dayTasks.forEach(task => scheduleList.appendChild(buildTaskEl(task, date)));
+  });
+
+  if (allDates.length === 0) {
+    scheduleList.innerHTML = '<div style="font-size:13px;color:var(--text-muted)">タスクがありません</div>';
+  }
+}
+
+// ===== TIMER =====
+let timerInterval = null;
+let timerSeconds = 25 * 60;
+let timerTotal = 25 * 60;
+let timerRunning = false;
+let timerStartTime = null;
+
+function setPreset(mins, btn) {
+  if (timerRunning) return;
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  timerSeconds = mins * 60;
+  timerTotal = mins * 60;
+  updateTimerDisplay();
+}
+
+function toggleTimer() {
+  if (timerRunning) {
+    pauseTimer();
+  } else {
+    startTimer();
+  }
+}
+
+function startTimer() {
+  timerRunning = true;
+  timerStartTime = Date.now();
+  document.getElementById('timerPlayBtn').textContent = '⏸';
+  document.getElementById('timerClock').classList.add('running');
+  timerInterval = setInterval(tickTimer, 500);
+}
+
+function pauseTimer() {
+  timerRunning = false;
+  clearInterval(timerInterval);
+  document.getElementById('timerPlayBtn').textContent = '▶';
+  document.getElementById('timerClock').classList.remove('running');
+}
+
+function tickTimer() {
+  timerSeconds--;
+  if (timerSeconds <= 0) {
+    timerSeconds = 0;
+    clearInterval(timerInterval);
+    timerRunning = false;
+    finishTimer();
+  }
+  updateTimerDisplay();
+}
+
+function updateTimerDisplay() {
+  const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+  const s = (timerSeconds % 60).toString().padStart(2, '0');
+  document.getElementById('timerClock').textContent = `${m}:${s}`;
+  const clock = document.getElementById('timerClock');
+  clock.classList.remove('warning', 'urgent');
+  if (timerSeconds <= 60) clock.classList.add('urgent');
+  else if (timerSeconds <= 5 * 60) clock.classList.add('warning');
+}
+
+function resetTimer() {
+  clearInterval(timerInterval);
+  timerRunning = false;
+  timerSeconds = timerTotal;
+  document.getElementById('timerPlayBtn').textContent = '▶';
+  document.getElementById('timerClock').classList.remove('running', 'warning', 'urgent');
+  updateTimerDisplay();
+}
+
+function lapTimer() {
+  const elapsed = timerTotal - timerSeconds;
+  if (elapsed < 10) return;
+  const mins = Math.round(elapsed / 60);
+  const subject = document.getElementById('timerSubject').value;
+  logSession(mins, subject);
+}
+
+function finishTimer() {
+  document.getElementById('timerPlayBtn').textContent = '▶';
+  document.getElementById('timerClock').classList.remove('running');
+  const mins = Math.round(timerTotal / 60);
+  const subject = document.getElementById('timerSubject').value;
+  logSession(mins, subject);
+  showToast(`🎉 ${mins}分 集中完了！`);
+}
+
+function logSession(mins, subject) {
+  const now = new Date();
+  const entry = {
+    mins,
+    subject: subject || 'other',
+    time: `${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`,
+    date: today()
+  };
+  sessions.unshift(entry);
+  if (sessions.length > 50) sessions.pop();
+  stats.totalMinutes = (stats.totalMinutes || 0) + mins;
+  saveSessions();
+  save();
+  renderSessionLog();
+}
+
+function renderSessionLog() {
+  const log = document.getElementById('sessionLog');
+  const todaySessions = sessions.filter(s => s.date === today());
+  if (todaySessions.length === 0) {
+    log.innerHTML = '<div style="font-size:13px;color:var(--text-muted)">まだセッションがありません</div>';
+    return;
+  }
+  log.innerHTML = todaySessions.map(s => `
+    <div class="session-entry">
+      <div class="session-dot" style="background:${subjectColor[s.subject]}"></div>
+      <span style="font-size:13px">${subjectLabel[s.subject]} — ${s.mins}分</span>
+      <span class="session-time">${s.time}</span>
+    </div>
+  `).join('');
+}
+
+// ===== STATS =====
+function renderStats() {
+  document.getElementById('streakNum').textContent = stats.streak || 0;
+  document.getElementById('totalCompleted').textContent = stats.completedTasks || 0;
+  document.getElementById('totalMinutes').textContent = stats.totalMinutes || 0;
+
+  const counts = stats.subjectCounts || {};
+  const max = Math.max(...Object.values(counts), 1);
+  const bars = document.getElementById('subjectBars');
+  bars.innerHTML = Object.entries(subjectLabel).map(([key, label]) => {
+    const count = counts[key] || 0;
+    const pct = (count / max * 100).toFixed(0);
+    return `
+      <div class="subj-bar-row">
+        <span class="subj-bar-label">${label}</span>
+        <div class="subj-bar-track">
+          <div class="subj-bar-fill" style="width:${pct}%;background:${subjectColor[key]}"></div>
+        </div>
+        <span class="subj-bar-count">${count}</span>
+      </div>
+    `;
+  }).join('');
+
+  const recent = document.getElementById('recentTasks');
+  const done = tasks.filter(t => t.doneBlocks >= t.qty).slice(-5).reverse();
+  if (done.length === 0) {
+    recent.innerHTML = '<div style="font-size:13px;color:var(--text-muted)">まだ完了タスクがありません</div>';
+  } else {
+    recent.innerHTML = '';
+    done.forEach(t => recent.appendChild(buildTaskEl(t)));
+  }
+}
+
+const subjectIcon = { math:'📐', eng:'🔤', jpn:'📖', sci:'🔬', soc:'🌏', other:'✏️' };
+const subjectBg = { math:'rgba(79,142,247,0.14)', eng:'rgba(167,139,250,0.14)', jpn:'rgba(61,214,140,0.14)', sci:'rgba(134,239,172,0.14)', soc:'rgba(253,186,116,0.14)', other:'rgba(148,163,184,0.14)' };
+
+function renderSubjectGrid(selected) {
+  const grid = document.getElementById('f-subject-grid');
+  grid.innerHTML = Object.keys(subjectLabel).map(key => `
+    <div class="subject-btn ${key === selected ? 'selected' : ''}"
+         style="--sb-color:${subjectColor[key]};--sb-bg:${subjectBg[key]}"
+         onclick="selectSubject('${key}')">
+      <span class="subj-icon">${subjectIcon[key]}</span>
+      <span class="subj-text">${subjectLabel[key]}</span>
+    </div>
+  `).join('');
+}
+
+function selectSubject(key) {
+  document.getElementById('f-subject').value = key;
+  renderSubjectGrid(key);
+}
+
+function populatePageSelects() {
+  const startSel = document.getElementById('f-page-start');
+  const endSel = document.getElementById('f-page-end');
+  let opts = '';
+  for (let i = 1; i <= 200; i++) opts += `<option value="${i}">${i}</option>`;
+  startSel.innerHTML = opts;
+  endSel.innerHTML = opts;
+  startSel.value = 1;
+  endSel.value = 5;
+}
+
+function updatePageRangeHint() {
+  const start = parseInt(document.getElementById('f-page-start').value) || 1;
+  const end = parseInt(document.getElementById('f-page-end').value) || 1;
+  const hint = document.getElementById('pageRangeHint');
+  if (end < start) {
+    hint.textContent = '終了ページは開始ページ以降を選んでください';
+    hint.style.color = 'var(--red)';
+    return null;
+  }
+  const total = end - start + 1;
+  hint.textContent = `合計 ${total} ページ`;
+  hint.style.color = 'var(--accent)';
+  return total;
+}
+
+// ===== JUKU SCHEDULE =====
+const dayKeys = ['mon','tue','wed','thu','fri','sat','sun'];
+const dayLabels = { mon:'月', tue:'火', wed:'水', thu:'木', fri:'金', sat:'土', sun:'日' };
+const jsDayToKey = ['sun','mon','tue','wed','thu','fri','sat']; // Date.getDay() index
+
+function timeOptions(selected) {
+  let opts = '';
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      const val = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
+      opts += `<option value="${val}" ${val === selected ? 'selected' : ''}>${val}</option>`;
+    }
+  }
+  return opts;
+}
+
+function renderJukuEditor() {
+  const container = document.getElementById('jukuWeekEditor');
+  container.innerHTML = dayKeys.map(key => {
+    const entry = jukuSchedule[key];
+    const enabled = !!entry;
+    return `
+      <div class="juku-day-row">
+        <div class="juku-day-toggle" onclick="toggleJukuDay('${key}')">
+          <div class="juku-checkbox ${enabled ? 'checked' : ''}" id="juku-check-${key}">${enabled ? '✓' : ''}</div>
+          <div class="juku-day-label">${dayLabels[key]}</div>
+        </div>
+        <div class="juku-time-row ${enabled ? '' : 'disabled'}" id="juku-time-${key}">
+          <select class="form-select juku-time-select" id="juku-start-${key}">${timeOptions(entry ? entry.start : '19:00')}</select>
+          <span style="color:var(--text-muted);font-size:12px">〜</span>
+          <select class="form-select juku-time-select" id="juku-end-${key}">${timeOptions(entry ? entry.end : '21:00')}</select>
+          <input class="form-input juku-name-input" id="juku-name-${key}" placeholder="塾" value="${entry ? (entry.name || '') : ''}">
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleJukuDay(key) {
+  const checkbox = document.getElementById(`juku-check-${key}`);
+  const timeRow = document.getElementById(`juku-time-${key}`);
+  const nowEnabled = !checkbox.classList.contains('checked');
+  checkbox.classList.toggle('checked', nowEnabled);
+  checkbox.textContent = nowEnabled ? '✓' : '';
+  timeRow.classList.toggle('disabled', !nowEnabled);
+}
+
+function saveJukuSchedule() {
+  const newSchedule = {};
+  dayKeys.forEach(key => {
+    const checkbox = document.getElementById(`juku-check-${key}`);
+    if (checkbox.classList.contains('checked')) {
+      newSchedule[key] = {
+        start: document.getElementById(`juku-start-${key}`).value,
+        end: document.getElementById(`juku-end-${key}`).value,
+        name: document.getElementById(`juku-name-${key}`).value.trim() || '塾'
+      };
+    } else {
+      newSchedule[key] = null;
+    }
+  });
+  jukuSchedule = newSchedule;
+  callApi('saveJukuSchedule', { schedule: jukuSchedule })
+    .then(() => showToast('💾 塾スケジュールを保存しました'))
+    .catch(() => showToast('⚠️ 保存に失敗しました'));
+  renderJukuToday();
+}
+
+function renderJukuToday() {
+  const now = new Date();
+  const key = jsDayToKey[now.getDay()];
+  const entry = jukuSchedule[key];
+  const info = document.getElementById('jukuInfo');
+  if (!entry) {
+    info.textContent = '今日は塾の予定はありません';
+    info.style.color = 'var(--text-muted)';
+  } else {
+    info.innerHTML = `<span style="color:var(--accent);font-family:var(--mono);font-weight:600">${entry.start}〜${entry.end}</span> ${entry.name}`;
+  }
+}
+
+// ===== JUKU SCHEDULE END =====
+function openAddForm(ctx) {
+  editingTaskId = null;
+  document.getElementById('formTitle').textContent = 'タスクを追加';
+  document.getElementById('formSaveBtn').textContent = '追加する';
+  document.getElementById('f-date').value = today();
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-deadline').value = '';
+  document.getElementById('f-memo').value = '';
+  document.getElementById('f-subject').value = 'math';
+  renderSubjectGrid('math');
+  document.getElementById('f-page-start').value = 1;
+  document.getElementById('f-page-end').value = 5;
+  updatePageRangeHint();
+  document.getElementById('addFormOverlay').classList.add('open');
+}
+
+function openEditForm(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  editingTaskId = id;
+  document.getElementById('formTitle').textContent = 'タスクを編集';
+  document.getElementById('formSaveBtn').textContent = '保存する';
+  document.getElementById('f-name').value = task.name;
+  document.getElementById('f-deadline').value = task.deadline || '';
+  document.getElementById('f-memo').value = task.memo || '';
+  document.getElementById('f-date').value = task.date || today();
+  document.getElementById('f-subject').value = task.subject;
+  renderSubjectGrid(task.subject);
+  document.getElementById('f-page-start').value = task.pageStart || 1;
+  document.getElementById('f-page-end').value = task.pageEnd || 5;
+  updatePageRangeHint();
+  document.getElementById('addFormOverlay').classList.add('open');
+}
+function closeAddForm() {
+  editingTaskId = null;
+  document.getElementById('addFormOverlay').classList.remove('open');
+}
+
+function saveTask() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { showToast('タスク名を入力してください'); return; }
+  const start = parseInt(document.getElementById('f-page-start').value) || 1;
+  const end = parseInt(document.getElementById('f-page-end').value) || 1;
+  if (end < start) { showToast('ページ範囲を確認してください'); return; }
+  const qty = end - start + 1;
+  let touchedTask;
+
+  if (editingTaskId) {
+    const task = tasks.find(t => t.id === editingTaskId);
+    if (task) {
+      task.name = name;
+      task.subject = document.getElementById('f-subject').value;
+      task.qty = qty;
+      task.pageStart = start;
+      task.pageEnd = end;
+      task.doneBlocks = Math.min(task.doneBlocks, qty);
+      task.date = document.getElementById('f-date').value || today();
+      task.deadline = document.getElementById('f-deadline').value;
+      task.memo = document.getElementById('f-memo').value.trim();
+      touchedTask = task;
+    }
+    showToast('✅ タスクを更新しました');
+  } else {
+    const task = {
+      id: Date.now().toString(),
+      name,
+      subject: document.getElementById('f-subject').value,
+      qty,
+      pageStart: start,
+      pageEnd: end,
+      doneBlocks: 0,
+      date: document.getElementById('f-date').value || today(),
+      deadline: document.getElementById('f-deadline').value,
+      memo: document.getElementById('f-memo').value.trim(),
+      createdAt: Date.now()
+    };
+    tasks.push(task);
+    touchedTask = task;
+    showToast('✅ タスクを追加しました');
+  }
+
+  save(touchedTask);
+  closeAddForm();
+  renderToday();
+  renderSchedule();
+  renderStats();
+}
+
+// ===== SAMPLE DATA (first run) =====
+function seedData() {
+  if (tasks.length > 0) return;
+  const t = today();
+  tasks = [
+    { id:'1', name:'数学ワーク p.20〜22', subject:'math', qty:15, doneBlocks:8, date:t, deadline:'', memo:'塾の宿題', createdAt:Date.now() },
+    { id:'2', name:'英単語テスト範囲', subject:'eng', qty:30, doneBlocks:0, date:t, deadline:t, memo:'', createdAt:Date.now() },
+    { id:'3', name:'理科プリント', subject:'sci', qty:10, doneBlocks:10, date:t, deadline:'', memo:'', createdAt:Date.now() },
+  ];
+  stats = { completedTasks:3, totalMinutes:45, streak:3, lastDate:t, subjectCounts:{ math:42, eng:90, sci:20 } };
+  save();
+}
+
+// ===== INIT =====
+function initAppData() {
+  setHeaderDate();
+  showSyncToast('読み込み中...');
+
+  Promise.all([
+    callApi('getTasks'),
+    callApi('getStats'),
+    callApi('getJukuSchedule')
+  ]).then(([taskRes, statsRes, jukuRes]) => {
+    if (taskRes.success) tasks = taskRes.tasks.map(normalizeTaskFromSheet);
+    if (statsRes.success) stats = statsRes.stats;
+    if (jukuRes.success) jukuSchedule = jukuRes.schedule;
+
+    renderToday();
+    renderJukuToday();
+    renderSessionLog();
+    populatePageSelects();
+    showToast('✅ 読み込み完了');
+  }).catch(err => {
+    showToast('⚠️ データ取得に失敗しました');
+  });
+
+  document.getElementById('f-page-start').addEventListener('change', updatePageRangeHint);
+  document.getElementById('f-page-end').addEventListener('change', updatePageRangeHint);
+}
+
+// Sheet values come back as numbers/strings/booleans; normalize types we rely on.
+function normalizeTaskFromSheet(t) {
+  return Object.assign({}, t, {
+    id: String(t.id),
+    qty: Number(t.qty) || 0,
+    doneBlocks: Number(t.doneBlocks) || 0,
+    pageStart: Number(t.pageStart) || 0,
+    pageEnd: Number(t.pageEnd) || 0,
+    createdAt: Number(t.createdAt) || Date.now(),
+    date: toDateOnly(t.date),
+    deadline: t.deadline ? toDateOnly(t.deadline) : ''
+  });
+}
+
+function showSyncToast(msg) {
+  showToast(msg);
+}
+
+// Try Google Sign-In init; if already logged in this session, skip the login screen.
+initGoogleSignIn();
+if (currentUser) {
+  showApp();
+}
+</script>
+</body>
+</html>
